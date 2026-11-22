@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.token.admin == true;
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 80
+        && request.resource.data.comment is string
+        && request.resource.data.comment.size() > 0
+        && request.resource.data.comment.size() <= 1000
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1
+        && request.resource.data.rating <= 5
+        && request.resource.data.isVisible == true
+        && request.resource.data.createdAt == request.time;
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isVisible'])
+        && request.resource.data.isVisible is bool;
+      allow delete: if isAdmin();
+    }
+
+    match /site_settings/homepage {
+      allow read: if true;
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['images', 'updatedAt'])
+        && request.resource.data.images is map
+        && request.resource.data.images.keys().hasOnly([
+          'mainHero',
+          'vehicleImage',
+          'vehicleShowcase',
+          'vehicleCard'
+        ])
+        && request.resource.data.updatedAt == request.time;
+    }
+  }
+}
